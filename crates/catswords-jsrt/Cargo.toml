@@ -15,7 +15,7 @@ keywords = [
   "embedded"
 ]
 categories = ["api-bindings"]
-publish = false
+publish = true
 
 [lib]
 name = "catswords_jsrt"
