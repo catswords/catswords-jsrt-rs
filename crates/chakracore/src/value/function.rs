@@ -22,7 +22,6 @@ pub struct Function {
 }
 
 impl Function {
-    // ✅ 원하는 형태로 복귀
     pub fn new(guard: &Guard<'_>, cb: Box<Callback>) -> Self {
         // Allocate callback state (thin pointer)
         let state = Box::new(CallbackState {

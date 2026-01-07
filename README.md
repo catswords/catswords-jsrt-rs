@@ -84,11 +84,7 @@ At runtime, `ChakraCore.dll` must be discoverable:
 
 ## Requirements (Linux)
 
-ChakraCore must be available as a shared library.
-
-### Option A: Use a system-installed ChakraCore
-
-If your distribution provides ChakraCore:
+ChakraCore must be available as a shared library. If your distribution provides ChakraCore:
 
 * `ChakraCore.h` must be available
 * `libChakraCore.so` must be linkable
@@ -98,47 +94,12 @@ Set environment variables if needed:
 ```bash
 export CHAKRACORE_INCLUDE_DIR="/usr/include"
 export CHAKRACORE_LIB_DIR="/usr/lib"
+#export CHAKRACORE_INCLUDE_DIR="/path/to/ChakraCore/include"  # build from source
+#export CHAKRACORE_LIB_DIR="/path/to/ChakraCore/build/lib"  # build from source
+#export LD_LIBRARY_PATH="$CHAKRACORE_LIB_DIR:$LD_LIBRARY_PATH"  # build from source
 ```
 
 Build:
-
-```bash
-cargo build
-```
-
-If the library is not in a default loader path, set:
-
-```bash
-export LD_LIBRARY_PATH="$CHAKRACORE_LIB_DIR:$LD_LIBRARY_PATH"
-```
-
----
-
-### Option B: Build ChakraCore from source
-
-If ChakraCore is not available via your package manager:
-
-1. Build ChakraCore from source
-
-2. Locate:
-
-   * `ChakraCore.h`
-   * `libChakraCore.so`
-
-3. Export paths:
-
-```bash
-export CHAKRACORE_INCLUDE_DIR="/path/to/ChakraCore/include"
-export CHAKRACORE_LIB_DIR="/path/to/ChakraCore/build/lib"
-```
-
-4. Ensure runtime loader can find the library:
-
-```bash
-export LD_LIBRARY_PATH="$CHAKRACORE_LIB_DIR:$LD_LIBRARY_PATH"
-```
-
-5. Build this workspace:
 
 ```bash
 cargo build
