@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let guard = context.make_current()?;
 
     // Create a JS function backed by a Rust closure
-    let multiply = js::value::Function::new(&runtime, &guard, Box::new(|guard, info| {
+    let multiply = js::value::Function::new(&guard, Box::new(|guard, info| {
         if info.arguments.len() != 2 {
             return Err(js::err_msg(
                 js::JsErrorCode::JsErrorInvalidArgument,

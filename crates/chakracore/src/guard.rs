@@ -1,14 +1,20 @@
+use crate::runtime::Runtime;
 use chakracore_sys as sys;
 
-pub struct Guard<'a> {
+pub struct Guard<'rt> {
     pub(crate) prev: sys::JsContextRef,
     pub(crate) current: sys::JsContextRef,
-    pub(crate) _marker: std::marker::PhantomData<&'a ()>,
+    pub(crate) runtime: &'rt Runtime,
+    pub(crate) _marker: std::marker::PhantomData<&'rt ()>,
 }
 
-impl<'a> Guard<'a> {
+impl<'rt> Guard<'rt> {
     pub fn context_raw(&self) -> sys::JsContextRef {
         self.current
+    }
+
+    pub fn runtime(&self) -> &'rt Runtime {
+        self.runtime
     }
 }
 

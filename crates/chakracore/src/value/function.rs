@@ -1,7 +1,7 @@
 use crate::error::{ok, Result};
 use crate::guard::Guard;
-use crate::value::Value;
 use crate::runtime::Runtime;
+use crate::value::Value;
 use chakracore_sys as sys;
 use std::ffi::c_void;
 
@@ -11,31 +11,35 @@ pub struct CallInfo {
 
 type Callback = dyn Fn(&Guard<'_>, CallInfo) -> Result<Value> + Send + Sync + 'static;
 
+// NEW: callback_state holds both runtime and callback.
+struct CallbackState {
+    runtime: *const Runtime,
+    cb: Box<Callback>,
+}
+
 pub struct Function {
     v: Value,
-    // Thin pointer to heap storage of a fat pointer (Box<dyn Trait>)
-    state_ptr: *mut Box<Callback>,
 }
 
 impl Function {
-    pub fn new(runtime: &Runtime, _guard: &Guard<'_>, cb: Box<Callback>) -> Self {
-        // Box<Callback> is a fat pointer -> cannot cast to void* directly.
-        // So allocate it again: Box<Box<Callback>> is a thin pointer.
-        let outer: Box<Box<Callback>> = Box::new(cb);
-        let state_ptr = Box::into_raw(outer) as *mut c_void;
+    // ✅ 원하는 형태로 복귀
+    pub fn new(guard: &Guard<'_>, cb: Box<Callback>) -> Self {
+        // Allocate callback state (thin pointer)
+        let state = Box::new(CallbackState {
+            runtime: guard.runtime() as *const Runtime,
+            cb,
+        });
+        let state_ptr = Box::into_raw(state) as *mut c_void;
 
-        // runtime owns the callback_state lifetime
-        runtime.register_callback_state(state_ptr);
+        // Runtime owns callback_state lifetime (freed after JsDisposeRuntime)
+        guard.runtime().register_callback_state(state_ptr);
 
         let mut func: sys::JsValueRef = std::ptr::null_mut();
         unsafe {
             let _ = ok(sys::JsCreateFunction(Some(native_trampoline), state_ptr, &mut func));
         }
 
-        Self {
-            v: Value { raw: func },
-            state_ptr: state_ptr as *mut Box<Callback>,
-        }
+        Self { v: Value { raw: func } }
     }
 
     pub fn call(&self, _guard: &Guard<'_>, args: &[&Value]) -> Result<Value> {
@@ -47,14 +51,7 @@ impl Function {
         }
 
         let mut out: sys::JsValueRef = std::ptr::null_mut();
-        unsafe {
-            ok(sys::JsCallFunction(
-                self.v.raw,
-                argv.as_ptr(),
-                argv.len() as u16,
-                &mut out,
-            ))?;
-        }
+        unsafe { ok(sys::JsCallFunction(self.v.raw, argv.as_ptr(), argv.len() as u16, &mut out))?; }
         Ok(Value { raw: out })
     }
 
@@ -67,7 +64,6 @@ impl Drop for Function {
     fn drop(&mut self) {
         // Do NOT free callback_state here.
         // Runtime will free all callback states after JsDisposeRuntime.
-        self.state_ptr = std::ptr::null_mut();
     }
 }
 
@@ -78,17 +74,19 @@ unsafe extern "C" fn native_trampoline(
     argument_count: u16,
     callback_state: *mut c_void,
 ) -> sys::JsValueRef {
-    // Cast back to our thin pointer (Box<Box<Callback>>)
-    let cb_ptr = callback_state as *mut Box<Callback>;
-    let cb: &Callback = &**cb_ptr;
+    // Cast back to CallbackState
+    let st = &*(callback_state as *const CallbackState);
+    let cb: &Callback = &*st.cb;
 
-    // Assume the host already has a current context set via Guard.
+    // Current context (assume host already set current context)
     let mut current: sys::JsContextRef = std::ptr::null_mut();
     let _ = sys::JsGetCurrentContext(&mut current);
 
+    // Build Guard that includes runtime reference
     let guard = Guard {
         prev: current,
         current,
+        runtime: &*st.runtime,
         _marker: std::marker::PhantomData,
     };
 
@@ -102,22 +100,16 @@ unsafe extern "C" fn native_trampoline(
     }
 
     // ChakraCore passes thisArg at argv[0]. The user's closure expects only user args.
-    let user_args = if argv.len() >= 2 {
-        argv[1..].to_vec()
-    } else {
-        Vec::new()
-    };
-
+    let user_args = if argv.len() >= 2 { argv[1..].to_vec() } else { Vec::new() };
     let info = CallInfo { arguments: user_args };
 
     match cb(&guard, info) {
         Ok(v) => v.raw,
         Err(e) => {
-            // thiserror v2: Display is generated from #[error("...")]
             let msg = format!("{}", e);
 
             if let Ok(js_err) = Value::error_from_message(&guard, &msg) {
-            let _ = sys::JsSetException(js_err.raw);
+                let _ = sys::JsSetException(js_err.raw);
                 return js_err.raw;
             }
 
@@ -131,7 +123,7 @@ unsafe extern "C" fn native_trampoline(
 }
 
 pub(crate) unsafe fn free_callback_state(p: *mut c_void) {
-    // p was created from Box::into_raw(Box<Box<Callback>>) as *mut c_void
-    let _outer: Box<Box<Callback>> = Box::from_raw(p as *mut Box<Callback>);
+    // p was created from Box::into_raw(Box<CallbackState>) as *mut c_void
+    let _state: Box<CallbackState> = Box::from_raw(p as *mut CallbackState);
     // drop happens here
 }

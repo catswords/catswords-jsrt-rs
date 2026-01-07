@@ -8,18 +8,19 @@ fn to_wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-pub struct Context {
+pub struct Context<'rt> {
     pub(crate) raw: sys::JsContextRef,
+    runtime: &'rt Runtime,
 }
 
-impl Context {
-    pub fn new(runtime: &Runtime) -> Result<Self> {
+impl<'rt> Context<'rt> {
+    pub fn new(runtime: &'rt Runtime) -> Result<Self> {
         let mut cx: sys::JsContextRef = std::ptr::null_mut();
         unsafe { ok(sys::JsCreateContext(runtime.raw, &mut cx))?; }
-        Ok(Self { raw: cx })
+        Ok(Self { raw: cx, runtime })
     }
 
-    pub fn make_current(&self) -> Result<Guard<'_>> {
+    pub fn make_current(&self) -> Result<Guard<'rt>> {
         let mut prev: sys::JsContextRef = std::ptr::null_mut();
         unsafe {
             ok(sys::JsGetCurrentContext(&mut prev))?;
@@ -28,10 +29,11 @@ impl Context {
         Ok(Guard {
             prev,
             current: self.raw,
+            runtime: self.runtime,
             _marker: std::marker::PhantomData,
         })
     }
-    
+
     pub fn set_global(&self, _guard: &Guard<'_>, name: &str, value: &Value) -> Result<()> {
         let mut global: sys::JsValueRef = std::ptr::null_mut();
         unsafe { ok_msg(sys::JsGetGlobalObject(&mut global), "JsGetGlobalObject failed")?; }

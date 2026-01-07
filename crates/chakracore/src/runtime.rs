@@ -27,7 +27,7 @@ impl Runtime {
         })
     }
 
-    // Register a callback_state pointer (allocated as Box<Box<Callback>> -> thin pointer)
+    // Register a callback_state pointer (allocated as Box<CallbackState> -> thin pointer)
     pub(crate) fn register_callback_state(&self, p: *mut c_void) {
         self.callback_states.lock().unwrap().push(p);
     }
