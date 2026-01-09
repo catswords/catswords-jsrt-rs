@@ -8,6 +8,8 @@ This project aims to keep all `unsafe` code strictly inside the low-level FFI cr
 
 Inspired by [@darfink’s Rust wrapper](https://github.com/darfink/chakracore-rs?utm_source=catswords), which is outdated. I rewrote it from scratch with compatibility in mind.
 
+This project is a subproject within the [WelsonJS](https://github.com/gnh1201/welsonjs) open-source ecosystem.
+
 ---
 
 ## Workspace layout
