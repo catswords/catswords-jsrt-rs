@@ -16,13 +16,13 @@ This project is a subproject within the [WelsonJS](https://github.com/gnh1201/we
 
 This repository is a Cargo workspace with the following crates:
 
-* **`chakracore-sys`**
+* **`catswords-jsrt-sys`**
 
   * Raw FFI bindings to ChakraCore
   * All `unsafe` code lives here
   * Thin, mostly mechanical bindings to the C API
 
-* **`chakracore`**
+* **`catswords-jsrt`**
 
   * Safe-ish ergonomic wrapper
   * API inspired by ChakraCore samples
